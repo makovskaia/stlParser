@@ -1,38 +1,3 @@
-let example = `solid Octahedron_Created_by_Prototyre3D
-	outer loop
-	facet normal 0 0 0
-	vertex 0 0 -1
-	vertex 1 1 0
-	vertex 1 -1 0
-	endloop
-	endfacet
-
-	facet normal 0 0 0
-	outer loop
-	vertex 0 0 -1
-	vertex 1 -1 0
-	vertex -1 -1 0
-	endloop
-	endfacet
-
-	facet normal 0 0 0
-	outer loop
-	vertex 0 0 -1
-	vertex -1 -1 0
-	vertex -1 1 0
-	endloop
-	endfacet
-
-	facet normal 0 0 0
-	outer loop
-	vertex 0 0 -1
-	vertex -1 1 0
-	vertex 1 1 0
-	endloop
-	endfacet
-	endsolid Octahedron_Created_by_Prototyre3D`
-
-
 let parseStl = (stl) => {
 
 	let tagNames = ['solid','facet normal','outer loop', 'vertex','endloop', 'endfacet', 'endsolid'];
