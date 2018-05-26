@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Draw model from STL file</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			body {
+				font-family: Monospace;
+				background-color: #f0f0f0;
+				margin: 0px;
+				overflow: hidden;
+			}
+		</style>
+	</head>
+	<body>
+		<script src="three.min.js"></script>
+		<script src="parseStl.js"></script>
+		<script src="text.js"></script>
+		<!-- <script src="../three/examples/js/libs/stats.min.js"></script> -->
+		<script src="stats.min.js"></script>
+		<script>
+
+		//handles errors
+			let throwError = (message) => {
+				document.getElementById('text').value = '';
+				changeSize(false);
+				alert(message);	
+			}
+
+			//threejs geometry - object, that includes all points, vectors, faces and shapes that are needed for our model 
+			// https://threejs.org/docs/#api/core/Geometry
+			//threejs vector3 - ordered triplet of coordinates that represents vector - https://threejs.org/docs/#api/math/Vector3
+			//makes Threejs Geometry with array of triangles from stl text 
+			let makeGeom = (data) => {
+				//for each element from data (array) if element's tag if  'facet normal' or 'vertex' create new vector3 with coordinates from array
+				let addVertices = () =>{
+					data.forEach(x=>{
+						if(x[0] === 'facet normal' || x[0] === 'vertex'){
+							geom.vertices.push(new THREE.Vector3(x[1][0], x[1][1], x[1][2]));
+						} 
+					})
+				}
+
+				//if parseStl returned string -make an error
+				if(typeof(data) == 'string'){
+					return throwError(data);
+				}
+				let geom = new THREE.Geometry();
+				addVertices(data);
+				let i = 0;
+				//make faces from vertices in our geometry https://threejs.org/docs/#api/core/Face3
+				while(geom.vertices[i]){
+					let normal = geom.vertices[i];
+					new THREE.Face3 (geom.vertices[i+1], geom.vertices[i+2], geom.vertices[i+3]);
+					geom.faces.push(new THREE.Face3 (i+1, i+2, i+3, normal, color()));
+					i += 4;
+				}
+				return geom
+			}
+
+			//generate random color
+			let color = () => {
+				return new THREE.Color( Math.random(), Math.random(), Math.random() );
+			}
+
+			//
+			let addModelToScene = (text) => {
+				let inputData = parseStl(text);
+				if(typeof(inputData) === 'string'){
+					return throwError(inputData);
+				}
+				let geometry = makeGeom(inputData);
+				let material = new THREE.MeshBasicMaterial( { transparent: false, overdraw: 0.5, flatShading: true, vertexColors: THREE.VertexColors, faceColors: THREE.faceColors, side: THREE.DoubleSide});
+				//create shape from our geometry
+			    let shape = new THREE.Mesh( geometry, material, {name: 'model'});
+			    let obj = new THREE.Object3D()
+			    obj.add(shape);
+			    obj.name = 'model'
+			    scene.add(obj);
+			}
+
+			let removeModelFromScene = (name) => {
+			    let selectedObject = scene.getObjectByName(name);
+			    scene.remove( selectedObject );
+			}
+
+			let onWindowResize = () => {
+				camera.left = window.innerWidth / - 2;
+				camera.right = window.innerWidth / 2;
+				camera.top = window.innerHeight / 2;
+				camera.bottom = window.innerHeight / - 2;
+				camera.updateProjectionMatrix();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+			}
+
+			let animate = () => {
+				requestAnimationFrame( animate );
+				stats.begin();
+				render();
+				stats.end();
+			}
+
+			let render = () => {
+				let timer = Date.now() * 0.0001;
+				camera.position.x = Math.cos( timer ) * 200;
+				camera.position.z = Math.sin( timer ) * 200;
+				camera.lookAt( scene.position );
+				renderer.render( scene, camera );
+			}
+
+			let container, stats, camera, scene, renderer;
+
+			let init = () => {
+				//making element to wrap our stage
+				container = document.createElement( 'div' );
+				container.setAttribute('id','root');
+				//appending it to body in our html
+				document.body.appendChild( container );
+				//making our input to paste new stl in
+				let inputForStl = document.createElement( 'div' );
+				inputForStl.style.position = 'absolute';
+				inputForStl.style.top = '10px';
+				inputForStl.style.right = '10px';
+				inputForStl.style.width = '100%';
+				inputForStl.style.textAlign = 'right';
+				inputForStl.innerHTML = `
+					<textarea id="text" style="rows = "10" cols="50" onfocus="changeSize(true)""></textarea><br/>
+					<button id="newModel" onclick="newModel()">go</button>
+				`;
+				container.appendChild( inputForStl );
+				//setting camera 
+				camera = new THREE.OrthographicCamera( window.innerWidth / - 100, window.innerWidth / 100, window.innerHeight / 100, window.innerHeight / - 100, - 500, 1000 );
+				camera.position.x = 2;
+				camera.position.y = 70;
+				camera.position.z = 1;
+				//creating three scene
+				scene = new THREE.Scene();
+				// Grid
+				let gridHelper = new THREE.GridHelper( 20, 10 );
+				scene.add( gridHelper );
+				addModelToScene(e3);
+			    //create light
+				let directionalLight = new THREE.DirectionalLight( Math.random() * 0xffffff );
+				directionalLight.position.x = Math.random() - 0.5;
+				directionalLight.position.y = Math.random() - 0.5;
+				directionalLight.position.z = Math.random() - 0.5;
+				directionalLight.position.normalize();
+				scene.add( directionalLight );
+				//create renderer
+				renderer = new THREE.WebGLRenderer();
+				renderer.shadowMap.enabled = true;
+				renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+				renderer.setClearColor( 0xf0f0f0 );
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				container.appendChild( renderer.domElement );
+				//stats - JavaScript Performance Monitor https://github.com/mrdoob/stats.js/
+				stats = new Stats();
+				container.appendChild( stats.dom );
+				window.addEventListener( 'resize', onWindowResize, false );
+			}
+
+			init()
+			animate()
+
+			let newModel = () => {
+				let text = document.getElementById('text').value;
+				removeModelFromScene('model');
+				addModelToScene(text);
+				document.getElementById('text').value = '';
+				changeSize(false);
+			}
+
+			let changeSize = (isBigger) => {
+				document.getElementById('text').style.height = isBigger ? '600px' : '20px';
+			}
+
+		</script>
+
+	</body>
+</html>
